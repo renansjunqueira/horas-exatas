@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3b82f6; /* Blue 500 */
+  --color-primary-light: #60a5fa; /* Blue 400 */
+  --color-primary-dark: #2563eb; /* Blue 600 */
+  --color-primary-transparent: rgba(59, 130, 246, 0.1); 
+  
+  --color-success: #10b981; /* Emerald 500 */
+  --color-success-light: #d1fae5; /* Emerald 100 */
+  
+  --color-danger: #ef4444; /* Red 500 */
+  --color-danger-light: #fee2e2; /* Red 100 */
+
+  --color-warning: #f59e0b; /* Amber 500 */
+  --color-warning-light: #fef3c7; /* Amber 100 */
+  
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-gray-50);
+    color: var(--color-gray-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom Scrollbar for modern look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* Shared UI Components Classes */
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-6 transition-shadow duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)];
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white px-5 py-2.5 rounded-xl font-medium shadow-sm shadow-blue-500/30 hover:bg-primary-dark transition-all duration-300 hover:shadow-blue-500/50 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-gray-700 px-5 py-2.5 rounded-xl font-medium border border-gray-200 shadow-sm hover:bg-gray-50 transition-all duration-300 active:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  
+  .input-field {
+    @apply w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300 text-gray-900 placeholder:text-gray-400;
+  }
+
+  .label-text {
+    @apply block text-sm font-semibold text-gray-700 mb-1.5;
+  }
+  
+  .page-title {
+    @apply text-3xl font-bold text-gray-900 tracking-tight;
+  }
+  
+  .page-subtitle {
+    @apply text-gray-500 mt-1;
+  }
+
+  .badge {
+    @apply px-3 py-1 rounded-full text-xs font-semibold;
+  }
+  .badge-success {
+    @apply bg-success-light text-success;
+  }
+  .badge-danger {
+    @apply bg-danger-light text-danger;
+  }
+}
+
+/* Simple enter animation */
+.animate-in {
+  animation: enter 0.4s ease-out;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
