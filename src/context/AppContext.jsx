@@ -1,165 +1,217 @@
 import { useState, createContext, useContext, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
-// Create the context
 const AppContext = createContext();
-
-// Create a custom hook for easy access
 export const useAppContext = () => useContext(AppContext);
 
-// Initial mock data
-const initialProjects = [
-    { id: 1, name: 'Residência Silva', startDate: '2023-11-01', status: 'Ativo' },
-    { id: 2, name: 'Edifício Infinity', startDate: '2024-01-15', status: 'Ativo' },
-    { id: 3, name: 'Reforma Comercial Centro', startDate: '2024-02-10', status: 'Inativo' },
-];
-
-const initialArchitects = [
-    { id: 1, name: 'Ana Costa' },
-    { id: 2, name: 'Carlos Pereira' },
-    { id: 3, name: 'Beatriz Almeida' },
-];
-
-// Mock hours data: { "yyyy-mm-dd": { architectId: { projectId: hours } } }
-const initialHours = {
-    '2024-02-26': {
-        1: { 1: 4, 2: 4 }, // Ana worked 4h on Project 1 and 4h on Project 2
-        2: { 2: 8 }        // Carlos worked 8h on Project 2
-    }
-};
-
 export const AppProvider = ({ children }) => {
-    // Try to load from localStorage first, else use mock
-    const [projects, setProjects] = useState(() => {
-        const saved = localStorage.getItem('horas_exatas_projects');
-        return saved ? JSON.parse(saved) : initialProjects;
-    });
+    const [projects, setProjects] = useState([]);
+    const [architects, setArchitects] = useState([]);
+    const [hoursLog, setHoursLog] = useState({});
+    const [isLoading, setIsLoading] = useState(true);
 
-    const [architects, setArchitects] = useState(() => {
-        const saved = localStorage.getItem('horas_exatas_architects');
-        return saved ? JSON.parse(saved) : initialArchitects;
-    });
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            // Fetch Projects
+            const { data: projData, error: projErr } = await supabase.from('projects').select('*').order('created_at', { ascending: true });
+            if (projErr) throw projErr;
 
-    const [hoursLog, setHoursLog] = useState(() => {
-        const saved = localStorage.getItem('horas_exatas_hours');
-        let parsed = saved ? JSON.parse(saved) : initialHours;
+            // Map DB column names to frontend state names
+            const mappedProjects = (projData || []).map(p => ({
+                id: p.id,
+                name: p.name,
+                startDate: p.start_date,
+                status: p.status
+            }));
+            setProjects(mappedProjects);
 
-        let changed = false;
+            // Fetch Architects
+            const { data: archData, error: archErr } = await supabase.from('architects').select('*').order('created_at', { ascending: true });
+            if (archErr) throw archErr;
+            setArchitects(archData || []);
 
-        // One-time migration to rescue "Casa Uva" hours that were saving under deleted Project IDs
-        Object.keys(parsed).forEach(date => {
-            Object.keys(parsed[date]).forEach(arch => {
-                const logs = parsed[date][arch];
-                if (logs["1"]) {
-                    logs["1772214122148"] = (logs["1772214122148"] || 0) + logs["1"];
-                    delete logs["1"];
-                    changed = true;
-                }
-                if (logs["1772212705262"]) {
-                    logs["1772214122148"] = (logs["1772214122148"] || 0) + logs["1772212705262"];
-                    delete logs["1772212705262"];
-                    changed = true;
-                }
+            // Fetch Hours Log
+            const { data: logData, error: logErr } = await supabase.from('hours_log').select('*');
+            if (logErr) throw logErr;
+
+            // Transform relational data into nested object: { "yyyy-mm-dd": { archId: { projId: hours } } }
+            const parsedHours = {};
+            (logData || []).forEach(record => {
+                const { log_date, architect_id, project_id, hours } = record;
+                if (!parsedHours[log_date]) parsedHours[log_date] = {};
+                if (!parsedHours[log_date][architect_id]) parsedHours[log_date][architect_id] = {};
+                parsedHours[log_date][architect_id][project_id] = parseFloat(hours);
             });
-        });
+            setHoursLog(parsedHours);
 
-        if (changed) {
-            localStorage.setItem('horas_exatas_hours', JSON.stringify(parsed));
+        } catch (error) {
+            console.error('Error fetching data from Supabase:', error);
+        } finally {
+            setIsLoading(false);
         }
-
-        return parsed;
-    });
-
-    // Save to localStorage whenever state changes
-    useEffect(() => {
-        localStorage.setItem('horas_exatas_projects', JSON.stringify(projects));
-    }, [projects]);
-
-    useEffect(() => {
-        localStorage.setItem('horas_exatas_architects', JSON.stringify(architects));
-    }, [architects]);
-
-    useEffect(() => {
-        localStorage.setItem('horas_exatas_hours', JSON.stringify(hoursLog));
-    }, [hoursLog]);
-
-    // Handlers for Projects
-    const addProject = (project) => {
-        setProjects(prev => [...prev, { ...project, id: Date.now() }]);
     };
 
-    const updateProjectStatus = (id, newStatus) => {
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    // Handlers for Projects
+    const addProject = async (project) => {
+        const { data, error } = await supabase
+            .from('projects')
+            .insert([{ name: project.name, start_date: project.startDate, status: project.status }])
+            .select();
+
+        if (error) {
+            console.error('Error adding project:', error);
+            return;
+        }
+
+        if (data && data[0]) {
+            setProjects(prev => [...prev, {
+                id: data[0].id,
+                name: data[0].name,
+                startDate: data[0].start_date,
+                status: data[0].status
+            }]);
+        }
+    };
+
+    const updateProjectStatus = async (id, newStatus) => {
+        const { error } = await supabase.from('projects').update({ status: newStatus }).eq('id', id);
+        if (error) {
+            console.error('Error updating project status:', error);
+            return;
+        }
         setProjects(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
     };
 
-    const updateProject = (id, updatedData) => {
+    const updateProject = async (id, updatedData) => {
+        const { error } = await supabase.from('projects').update({
+            name: updatedData.name,
+            start_date: updatedData.startDate,
+            status: updatedData.status
+        }).eq('id', id);
+
+        if (error) {
+            console.error('Error updating project:', error);
+            return;
+        }
         setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updatedData } : p));
     };
 
-    const deleteProject = (id) => {
+    const deleteProject = async (id) => {
+        const { error } = await supabase.from('projects').delete().eq('id', id);
+        if (error) {
+            console.error('Error deleting project:', error);
+            return;
+        }
         setProjects(prev => prev.filter(p => p.id !== id));
-        // You might want to also cleanup hoursLog related to this project, 
-        // but for a simple prototype we can leave it or handle it separately if required
     };
 
     // Handlers for Team
-    const addArchitect = (name) => {
-        setArchitects(prev => [...prev, { id: Date.now(), name }]);
+    const addArchitect = async (name) => {
+        const { data, error } = await supabase.from('architects').insert([{ name }]).select();
+        if (error) {
+            console.error('Error adding architect:', error);
+            return;
+        }
+        if (data && data[0]) {
+            setArchitects(prev => [...prev, data[0]]);
+        }
     };
 
-    const updateArchitect = (id, newName) => {
+    const updateArchitect = async (id, newName) => {
+        const { error } = await supabase.from('architects').update({ name: newName }).eq('id', id);
+        if (error) {
+            console.error('Error updating architect:', error);
+            return;
+        }
         setArchitects(prev => prev.map(a => a.id === id ? { ...a, name: newName } : a));
     };
 
-    const deleteArchitect = (id) => {
+    const deleteArchitect = async (id) => {
+        const { error } = await supabase.from('architects').delete().eq('id', id);
+        if (error) {
+            console.error('Error deleting architect:', error);
+            return;
+        }
         setArchitects(prev => prev.filter(a => a.id !== id));
     };
 
     // Handlers for Time Logging
-    const logHours = (dateStr, architectId, projectId, hoursCount) => {
+    const logHours = async (dateStr, architectId, projectId, hoursCount) => {
+        const numHours = parseFloat(hoursCount);
+
+        // Optimistic UI update
         setHoursLog(prev => {
             const newLog = { ...prev };
-
-            // Ensure date entry exists
             if (!newLog[dateStr]) newLog[dateStr] = {};
-
-            // Ensure architect entry exists
             if (!newLog[dateStr][architectId]) newLog[dateStr][architectId] = {};
 
-            // Update hours
-            newLog[dateStr][architectId][projectId] = parseFloat(hoursCount) || 0;
+            newLog[dateStr][architectId][projectId] = numHours || 0;
 
-            // Cleanup if 0
-            if (newLog[dateStr][architectId][projectId] === 0) {
+            if (numHours === 0 || isNaN(numHours)) {
                 delete newLog[dateStr][architectId][projectId];
+                if (Object.keys(newLog[dateStr][architectId]).length === 0) {
+                    delete newLog[dateStr][architectId];
+                }
             }
-
             return newLog;
         });
+
+        if (numHours === 0 || isNaN(numHours)) {
+            // Delete from DB
+            await supabase.from('hours_log').delete().match({
+                log_date: dateStr,
+                architect_id: architectId,
+                project_id: projectId
+            });
+        } else {
+            // Upsert in DB
+            await supabase.from('hours_log').upsert({
+                log_date: dateStr,
+                architect_id: architectId,
+                project_id: projectId,
+                hours: numHours
+            }, { onConflict: 'log_date, architect_id, project_id' });
+        }
     };
 
-    const removeRowHours = (yearMonth, architectId, projectId) => {
+    const removeRowHours = async (yearMonth, architectId, projectId) => {
+        // Optimistic UI Update
         setHoursLog(prev => {
             const newLog = { ...prev };
-
-            // Loop through all days in the month and remove the entry for this architect/project
             Object.keys(newLog).forEach(dateStr => {
                 if (dateStr.startsWith(yearMonth)) {
                     if (newLog[dateStr][architectId] && newLog[dateStr][architectId][projectId] !== undefined) {
                         delete newLog[dateStr][architectId][projectId];
-
-                        // Cleanup empty objects
                         if (Object.keys(newLog[dateStr][architectId]).length === 0) {
                             delete newLog[dateStr][architectId];
                         }
                     }
                 }
             });
-
             return newLog;
         });
+
+        // DB Deletion
+        const startDate = `${yearMonth}-01`;
+        const [year, month] = yearMonth.split('-');
+        const endDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        const endDate = `${yearMonth}-${endDay}`;
+
+        await supabase.from('hours_log')
+            .delete()
+            .eq('architect_id', architectId)
+            .eq('project_id', projectId)
+            .gte('log_date', startDate)
+            .lte('log_date', endDate);
     };
 
     const value = {
+        isLoading,
         projects,
         addProject,
         updateProjectStatus,
