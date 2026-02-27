@@ -178,8 +178,8 @@ export default function TimeLogs() {
                     <table className="w-full text-left border-collapse min-w-[1200px]">
                         <thead>
                             <tr className="bg-gray-50/80 border-b border-gray-100/80 text-xs text-gray-500">
-                                <th className="px-4 py-3 font-semibold rounded-tl-xl sticky left-0 bg-gray-50/95 backdrop-blur-sm z-10 w-48 min-w-[200px]">Arquiteto</th>
-                                <th className="px-4 py-3 font-semibold sticky left-[200px] bg-gray-50/95 backdrop-blur-sm z-10 w-48 min-w-[200px] border-r border-gray-200/60">Projeto</th>
+                                <th className="px-4 py-3 font-semibold rounded-tl-xl md:sticky md:left-0 bg-gray-50/95 backdrop-blur-sm z-10 w-32 md:w-48 min-w-[140px] md:min-w-[200px]">Arquiteto</th>
+                                <th className="px-4 py-3 font-semibold md:sticky md:left-[200px] bg-gray-50/95 backdrop-blur-sm z-10 w-32 md:w-48 min-w-[140px] md:min-w-[200px] border-r border-gray-200/60">Projeto</th>
                                 {daysArray.map(day => (
                                     <th key={day} className="px-2 py-3 font-semibold text-center w-12 min-w-[48px]">{day}</th>
                                 ))}
@@ -189,7 +189,7 @@ export default function TimeLogs() {
                         <tbody className="divide-y divide-gray-100/60">
                             {rows.map((row) => (
                                 <tr key={row.id} className="hover:bg-primary/5 transition-colors group">
-                                    <td className="p-2 sticky left-0 bg-white group-hover:bg-blue-50/50 transition-colors z-10">
+                                    <td className="p-2 md:sticky md:left-0 bg-white group-hover:bg-blue-50/50 transition-colors z-10">
                                         <select
                                             className="w-full bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer text-gray-800"
                                             value={row.architectId}
@@ -202,7 +202,7 @@ export default function TimeLogs() {
                                             {architects.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                                         </select>
                                     </td>
-                                    <td className="p-2 sticky left-[200px] bg-white group-hover:bg-blue-50/50 transition-colors z-10 border-r border-gray-100 overflow-hidden text-ellipsis whitespace-nowrap">
+                                    <td className="p-2 md:sticky md:left-[200px] bg-white group-hover:bg-blue-50/50 transition-colors z-10 border-r border-gray-100 overflow-hidden text-ellipsis whitespace-nowrap">
                                         <select
                                             className="w-full bg-transparent border-none text-sm text-gray-600 focus:ring-0 cursor-pointer"
                                             value={row.projectId}
