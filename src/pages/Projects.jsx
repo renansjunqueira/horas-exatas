@@ -125,7 +125,7 @@ export default function Projects() {
 
             <div className="card !p-0 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[700px]">
                         <thead>
                             <tr className="bg-gray-50/80 border-b border-gray-100/80 text-gray-500 text-sm">
                                 <th className="px-6 py-4 font-semibold rounded-tl-xl w-6/12">Nome do Projeto</th>
