@@ -26,10 +26,14 @@ export const AppProvider = ({ children }) => {
             }));
             setProjects(mappedProjects);
 
-            // Fetch Architects
-            const { data: archData, error: archErr } = await supabase.from('architects').select('*').order('created_at', { ascending: true });
+            // Fetch Architects (from profiles — every approved user is an architect)
+            const { data: archData, error: archErr } = await supabase
+                .from('profiles')
+                .select('id, full_name, email, role, approval_status, created_at')
+                .eq('approval_status', 'approved')
+                .order('created_at', { ascending: true });
             if (archErr) throw archErr;
-            setArchitects(archData || []);
+            setArchitects((archData || []).map(p => ({ ...p, name: p.full_name })));
 
             // Fetch Hours Log
             const { data: logData, error: logErr } = await supabase.from('hours_log').select('*');
@@ -108,36 +112,6 @@ export const AppProvider = ({ children }) => {
             return;
         }
         setProjects(prev => prev.filter(p => p.id !== id));
-    };
-
-    // Handlers for Team
-    const addArchitect = async (name) => {
-        const { data, error } = await supabase.from('architects').insert([{ name }]).select();
-        if (error) {
-            console.error('Error adding architect:', error);
-            return;
-        }
-        if (data && data[0]) {
-            setArchitects(prev => [...prev, data[0]]);
-        }
-    };
-
-    const updateArchitect = async (id, newName) => {
-        const { error } = await supabase.from('architects').update({ name: newName }).eq('id', id);
-        if (error) {
-            console.error('Error updating architect:', error);
-            return;
-        }
-        setArchitects(prev => prev.map(a => a.id === id ? { ...a, name: newName } : a));
-    };
-
-    const deleteArchitect = async (id) => {
-        const { error } = await supabase.from('architects').delete().eq('id', id);
-        if (error) {
-            console.error('Error deleting architect:', error);
-            return;
-        }
-        setArchitects(prev => prev.filter(a => a.id !== id));
     };
 
     // Handlers for Time Logging
@@ -219,9 +193,6 @@ export const AppProvider = ({ children }) => {
         updateProject,
         deleteProject,
         architects,
-        addArchitect,
-        updateArchitect,
-        deleteArchitect,
         hoursLog,
         logHours,
         removeRowHours

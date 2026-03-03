@@ -12,7 +12,7 @@ export default function TimeLogs() {
     const [alertMsg, setAlertMsg] = useState('');
 
     // Arquiteto vinculado ao usuário logado (null para admins)
-    const myArchitect = isAdmin ? null : architects.find(a => a.user_id === user?.id);
+    const myArchitect = isAdmin ? null : architects.find(a => a.id === user?.id);
 
     // Grid State
     // Format: [ { id: rowId, architectId: '', projectId: '', hours: { '1': 4, '2': 8 } } ]
