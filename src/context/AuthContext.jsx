@@ -36,14 +36,7 @@ export const AuthProvider = ({ children }) => {
                     return;
                 }
 
-                let profile = await fetchProfile(session.user.id);
-
-                // Retry após 1.5s — o trigger pode ainda estar criando o registro
-                if (!profile) {
-                    await new Promise(r => setTimeout(r, 1500));
-                    profile = await fetchProfile(session.user.id);
-                }
-
+                const profile = await fetchProfile(session.user.id);
                 setAuthState({ user: session.user, profile, isLoading: false });
             }
         );
