@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { Plus, Check, X } from 'lucide-react';
 
 export default function Projects() {
     const { projects, addProject, updateProjectStatus, updateProject, deleteProject } = useAppContext();
+    const { isAdmin } = useAuth();
 
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -57,23 +59,29 @@ export default function Projects() {
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="page-title">Projetos</h2>
-                    <p className="page-subtitle">Gerencie os projetos do escritório de arquitetura.</p>
+                    <p className="page-subtitle">
+                        {isAdmin
+                            ? 'Gerencie os projetos do escritório de arquitetura.'
+                            : 'Projetos ativos do escritório de arquitetura.'}
+                    </p>
                 </div>
-                <button
-                    onClick={() => {
-                        if (isAdding) {
-                            setIsAdding(false);
-                            setEditingId(null);
-                            setNewProject({ name: '', startDate: '', status: 'Ativo' });
-                        } else {
-                            setIsAdding(true);
-                        }
-                    }}
-                    className="btn-primary flex items-center gap-2 w-fit"
-                >
-                    {isAdding ? <X size={20} /> : <Plus size={20} />}
-                    <span>{isAdding ? 'Cancelar' : 'Novo Projeto'}</span>
-                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => {
+                            if (isAdding) {
+                                setIsAdding(false);
+                                setEditingId(null);
+                                setNewProject({ name: '', startDate: '', status: 'Ativo' });
+                            } else {
+                                setIsAdding(true);
+                            }
+                        }}
+                        className="btn-primary flex items-center gap-2 w-fit"
+                    >
+                        {isAdding ? <X size={20} /> : <Plus size={20} />}
+                        <span>{isAdding ? 'Cancelar' : 'Novo Projeto'}</span>
+                    </button>
+                )}
             </header>
 
             {isAdding && (
@@ -130,8 +138,8 @@ export default function Projects() {
                             <tr className="bg-gray-50/80 border-b border-gray-100/80 text-gray-500 text-sm">
                                 <th className="px-6 py-4 font-semibold rounded-tl-xl w-6/12">Nome do Projeto</th>
                                 <th className="px-6 py-4 font-semibold w-2/12">Data de Início</th>
-                                <th className="px-6 py-4 font-semibold w-2/12 text-center">Status</th>
-                                <th className="px-6 py-4 font-semibold rounded-tr-xl w-2/12 text-right">Ações</th>
+                                <th className={`px-6 py-4 font-semibold w-2/12 text-center ${!isAdmin ? 'rounded-tr-xl' : ''}`}>Status</th>
+                                {isAdmin && <th className="px-6 py-4 font-semibold rounded-tr-xl w-2/12 text-right">Ações</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -149,33 +157,41 @@ export default function Projects() {
                                             {new Date(project.startDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                                         </td>
                                         <td className="px-6 py-4 flex justify-center">
-                                            <button
-                                                onClick={() => toggleStatus(project.id, project.status)}
-                                                className={`badge transition-colors cursor-pointer border ${project.status === 'Ativo'
-                                                    ? 'badge-success border-success-light hover:bg-success hover:text-white'
-                                                    : 'badge-danger border-danger-light hover:bg-danger hover:text-white'
-                                                    }`}
-                                                title="Clique para alterar o status"
-                                            >
-                                                {project.status}
-                                            </button>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {isAdmin ? (
                                                 <button
-                                                    onClick={() => handleEdit(project)}
-                                                    className="text-gray-400 hover:text-primary transition-colors text-sm font-medium hover:underline"
+                                                    onClick={() => toggleStatus(project.id, project.status)}
+                                                    className={`badge transition-colors cursor-pointer border ${project.status === 'Ativo'
+                                                        ? 'badge-success border-success-light hover:bg-success hover:text-white'
+                                                        : 'badge-danger border-danger-light hover:bg-danger hover:text-white'
+                                                        }`}
+                                                    title="Clique para alterar o status"
                                                 >
-                                                    Editar
+                                                    {project.status}
                                                 </button>
-                                                <button
-                                                    onClick={() => handleDeleteClick(project)}
-                                                    className="text-gray-400 hover:text-danger transition-colors text-sm font-medium hover:underline"
-                                                >
-                                                    Excluir
-                                                </button>
-                                            </div>
+                                            ) : (
+                                                <span className={`badge ${project.status === 'Ativo' ? 'badge-success' : 'badge-danger'}`}>
+                                                    {project.status}
+                                                </span>
+                                            )}
                                         </td>
+                                        {isAdmin && (
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => handleEdit(project)}
+                                                        className="text-gray-400 hover:text-primary transition-colors text-sm font-medium hover:underline"
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteClick(project)}
+                                                        className="text-gray-400 hover:text-danger transition-colors text-sm font-medium hover:underline"
+                                                    >
+                                                        Excluir
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))
                             )}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -37,6 +38,7 @@ const generateColors = (count) => {
 
 export default function Dashboard() {
     const { projects, architects, hoursLog } = useAppContext();
+    const { isAdmin } = useAuth();
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const yearMonth = format(currentDate, 'yyyy-MM');
@@ -47,18 +49,18 @@ export default function Dashboard() {
         const agg = {};
         let total = 0;
 
-        // Architect totals for Pie chart
+        // Architect totals for Pie chart (admin view)
         const archTotals = {};
+        // Project totals for Pie chart (user view)
+        const projTotals = {};
 
         Object.keys(hoursLog).forEach(dateStr => {
             if (dateStr.startsWith(yearMonth)) {
                 Object.keys(hoursLog[dateStr]).forEach(archId => {
-                    // Skip if the architect no longer exists
                     const architectExists = architects.some(a => a.id.toString() === archId);
                     if (!architectExists) return;
 
                     Object.keys(hoursLog[dateStr][archId]).forEach(projId => {
-                        // Skip if the project no longer exists
                         const projectExists = projects.some(p => p.id.toString() === projId);
                         if (!projectExists) return;
 
@@ -67,26 +69,22 @@ export default function Dashboard() {
 
                         agg[key] = (agg[key] || 0) + h;
                         archTotals[archId] = (archTotals[archId] || 0) + h;
+                        projTotals[projId] = (projTotals[projId] || 0) + h;
                         total += h;
                     });
                 });
             }
         });
 
-        // Prepare Bar Chart Data
-        // We want X-axis = Architects, each dataset = A distinct Project
+        // Bar Chart: X = Arquitetos, datasets = Projetos (igual para admin e user)
         const uniqueArchIds = Object.keys(archTotals);
-        // Find all unique project IDs that have >0 hours this month
         const activeProjIds = [...new Set(Object.keys(agg).map(k => k.split('_')[1]))];
-
         const projColors = generateColors(activeProjIds.length);
 
         const datasets = activeProjIds.map((projId, index) => {
             const proj = projects.find(p => p.id.toString() === projId);
-            const projName = proj ? proj.name : `Projeto ${projId}`;
-
             return {
-                label: projName,
+                label: proj ? proj.name : `Projeto ${projId}`,
                 data: uniqueArchIds.map(archId => agg[`${archId}_${projId}`] || 0),
                 backgroundColor: projColors[index],
                 borderRadius: 6,
@@ -99,29 +97,46 @@ export default function Dashboard() {
             return arch ? arch.name : `Arquiteto ${id}`;
         });
 
-        const computedBarData = {
-            labels: archLabels,
-            datasets
-        };
+        const computedBarData = { labels: archLabels, datasets };
 
-        // Prepare Pie Chart Data
-        const archColors = generateColors(uniqueArchIds.length).reverse();
-        const computedPieData = {
-            labels: archLabels,
-            datasets: [
-                {
+        // Pie Chart:
+        // Admin → distribuição por arquiteto
+        // User  → distribuição por projeto (pie por arquiteto teria 1 fatia = 100%, inútil)
+        let computedPieData;
+        if (isAdmin) {
+            const archColors = generateColors(uniqueArchIds.length).reverse();
+            computedPieData = {
+                labels: archLabels,
+                datasets: [{
                     data: uniqueArchIds.map(id => archTotals[id]),
                     backgroundColor: archColors,
                     borderWidth: 2,
                     borderColor: '#ffffff',
-                    hoverOffset: 4
-                }
-            ]
-        };
+                    hoverOffset: 4,
+                }],
+            };
+        } else {
+            const activeUserProjIds = Object.keys(projTotals);
+            const projPieColors = generateColors(activeUserProjIds.length);
+            const projPieLabels = activeUserProjIds.map(id => {
+                const proj = projects.find(p => p.id.toString() === id);
+                return proj ? proj.name : `Projeto ${id}`;
+            });
+            computedPieData = {
+                labels: projPieLabels,
+                datasets: [{
+                    data: activeUserProjIds.map(id => projTotals[id]),
+                    backgroundColor: projPieColors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverOffset: 4,
+                }],
+            };
+        }
 
         return { barData: computedBarData, pieData: computedPieData, totalMonthHours: total };
 
-    }, [hoursLog, yearMonth, projects, architects]);
+    }, [hoursLog, yearMonth, projects, architects, isAdmin]);
 
 
     const barOptions = {
@@ -174,7 +189,11 @@ export default function Dashboard() {
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="page-title">Dashboard</h2>
-                    <p className="page-subtitle">Visão consolidada do esforço da equipe.</p>
+                    <p className="page-subtitle">
+                        {isAdmin
+                            ? 'Visão consolidada do esforço da equipe.'
+                            : 'Suas horas registradas no mês.'}
+                    </p>
                 </div>
 
                 <div className="flex items-center gap-4 bg-white px-4 py-2 hover:shadow-sm rounded-xl border border-gray-200 shadow-sm transition-all duration-300">
@@ -207,7 +226,9 @@ export default function Dashboard() {
                         <div className="card h-[460px] flex flex-col animate-in fade-in slide-in-from-bottom-4">
                             <div className="flex items-center gap-2 mb-6 text-gray-800">
                                 <BarChart3 className="text-primary" size={24} />
-                                <h3 className="text-lg font-semibold tracking-tight">Horas por Arquiteto e Projeto</h3>
+                                <h3 className="text-lg font-semibold tracking-tight">
+                                    {isAdmin ? 'Horas por Arquiteto e Projeto' : 'Minhas Horas por Projeto'}
+                                </h3>
                             </div>
                             <div className="flex-1 w-full relative">
                                 <Bar data={barData} options={barOptions} />
@@ -230,7 +251,9 @@ export default function Dashboard() {
                     <div className="card h-[460px] flex flex-col animate-in fade-in slide-in-from-bottom-8">
                         <div className="flex items-center gap-2 mb-6 text-gray-800">
                             <PieChart className="text-primary" size={24} />
-                            <h3 className="text-lg font-semibold tracking-tight">Distribuição de Esforço</h3>
+                            <h3 className="text-lg font-semibold tracking-tight">
+                                {isAdmin ? 'Distribuição de Esforço' : 'Distribuição por Projeto'}
+                            </h3>
                         </div>
                         <div className="flex-1 w-full relative flex items-center justify-center">
                             <div className="w-full max-w-[280px] h-full">

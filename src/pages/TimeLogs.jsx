@@ -1,13 +1,18 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { format, getDaysInMonth, startOfMonth, addMonths, subMonths } from 'date-fns';
+import { useAuth } from '../context/AuthContext';
+import { format, getDaysInMonth, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Save, AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, AlertTriangle, Plus, Trash2, UserX } from 'lucide-react';
 
 export default function TimeLogs() {
     const { projects, architects, logHours, hoursLog, removeRowHours } = useAppContext();
+    const { isAdmin, user } = useAuth();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [alertMsg, setAlertMsg] = useState('');
+
+    // Arquiteto vinculado ao usuário logado (null para admins)
+    const myArchitect = isAdmin ? null : architects.find(a => a.user_id === user?.id);
 
     // Grid State
     // Format: [ { id: rowId, architectId: '', projectId: '', hours: { '1': 4, '2': 8 } } ]
@@ -44,19 +49,22 @@ export default function TimeLogs() {
             }
         });
 
-        // If no rows, add an empty one to start
+        // Se não houver registros, adiciona linha inicial.
+        // Usuários comuns já têm o architectId pré-preenchido.
         if (newRows.length === 0) {
-            newRows.push({ id: Date.now(), architectId: '', projectId: '', hours: {} });
+            const defaultArchId = !isAdmin && myArchitect ? myArchitect.id.toString() : '';
+            newRows.push({ id: Date.now(), architectId: defaultArchId, projectId: '', hours: {} });
         }
 
         setRows(newRows);
-    }, [currentDate, hoursLog]);
+    }, [currentDate, hoursLog, isAdmin, myArchitect]);
 
     const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
     const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
     const addRow = () => {
-        setRows([...rows, { id: Date.now(), architectId: '', projectId: '', hours: {} }]);
+        const defaultArchId = !isAdmin && myArchitect ? myArchitect.id.toString() : '';
+        setRows([...rows, { id: Date.now(), architectId: defaultArchId, projectId: '', hours: {} }]);
     };
 
     const removeRow = (row) => {
@@ -150,7 +158,11 @@ export default function TimeLogs() {
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="page-title">Registro de Horas</h2>
-                    <p className="page-subtitle">Aponte as horas dedicadas por arquiteto em cada projeto.</p>
+                    <p className="page-subtitle">
+                        {isAdmin
+                            ? 'Aponte as horas dedicadas por arquiteto em cada projeto.'
+                            : 'Registre suas horas em cada projeto.'}
+                    </p>
                 </div>
 
                 <div className="flex items-center gap-4 bg-white px-4 py-2 hover:shadow-sm rounded-xl border border-gray-200 shadow-sm transition-all duration-300">
@@ -166,6 +178,20 @@ export default function TimeLogs() {
                 </div>
             </header>
 
+            {/* Banner bloqueante: usuário sem architect vinculado */}
+            {!isAdmin && !myArchitect && (
+                <div className="card flex items-start gap-4 border-l-4 border-l-warning py-5">
+                    <UserX size={24} className="text-warning flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p className="font-semibold text-gray-800">Conta não vinculada a um arquiteto</p>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                            Sua conta ainda não foi associada a um registro de arquiteto.
+                            Entre em contato com a administração para liberar o lançamento de horas.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {alertMsg && (
                 <div className={`p-4 rounded-xl flex items-center gap-3 animate-in ${alertMsg.includes('Aviso') ? 'bg-warning-light text-warning-dark border border-warning/20' : 'bg-success-light text-success border border-success/20'}`}>
                     <AlertTriangle size={20} className={alertMsg.includes('Aviso') ? 'text-warning' : 'text-success'} />
@@ -173,7 +199,8 @@ export default function TimeLogs() {
                 </div>
             )}
 
-            <div className="card !p-0 overflow-hidden shadow-sm">
+            {/* Tabela só renderiza se admin ou se o usuário tiver um architect vinculado */}
+            {(isAdmin || myArchitect) && <div className="card !p-0 overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[1200px]">
                         <thead>
@@ -190,17 +217,23 @@ export default function TimeLogs() {
                             {rows.map((row) => (
                                 <tr key={row.id} className="hover:bg-primary/5 transition-colors group">
                                     <td className="p-2 md:sticky md:left-0 bg-white group-hover:bg-blue-50/50 transition-colors z-10">
-                                        <select
-                                            className="w-full bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer text-gray-800"
-                                            value={row.architectId}
-                                            onChange={(e) => updateRow(row.id, 'architectId', e.target.value)}
-                                        >
-                                            <option value="" disabled>Selecionar...</option>
-                                            {!architects.some(a => a.id.toString() === row.architectId?.toString()) && row.architectId ? (
-                                                <option value={row.architectId} disabled className="text-danger font-medium">Arquiteto Excluído</option>
-                                            ) : null}
-                                            {architects.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                                        </select>
+                                        {isAdmin ? (
+                                            <select
+                                                className="w-full bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer text-gray-800"
+                                                value={row.architectId}
+                                                onChange={(e) => updateRow(row.id, 'architectId', e.target.value)}
+                                            >
+                                                <option value="" disabled>Selecionar...</option>
+                                                {!architects.some(a => a.id.toString() === row.architectId?.toString()) && row.architectId ? (
+                                                    <option value={row.architectId} disabled className="text-danger font-medium">Arquiteto Excluído</option>
+                                                ) : null}
+                                                {architects.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                            </select>
+                                        ) : (
+                                            <span className="px-2 text-sm font-medium text-gray-800">
+                                                {myArchitect?.name ?? '—'}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="p-2 md:sticky md:left-[200px] bg-white group-hover:bg-blue-50/50 transition-colors z-10 border-r border-gray-100 overflow-hidden text-ellipsis whitespace-nowrap">
                                         <select
@@ -271,7 +304,7 @@ export default function TimeLogs() {
                         <Save size={18} /> Confirmar Registros
                     </button>
                 </div>
-            </div>
+            </div>}
         </div>
     );
 }

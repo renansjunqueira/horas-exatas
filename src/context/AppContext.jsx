@@ -212,6 +212,7 @@ export const AppProvider = ({ children }) => {
 
     const value = {
         isLoading,
+        refreshData: fetchData,  // permite que componentes forcem um re-fetch após mutações
         projects,
         addProject,
         updateProjectStatus,
