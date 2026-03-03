@@ -26,11 +26,12 @@ const ProtectedRoute = () => {
 
     if (!user) return <Navigate to="/login" replace />;
 
-    if (profile?.approval_status === 'pending') {
+    // profile null = trigger ainda criando o registro ou RLS bloqueou leitura → trata como pending
+    if (!profile || profile.approval_status === 'pending') {
         return <Navigate to="/aguardando-aprovacao" replace />;
     }
 
-    if (profile?.approval_status === 'rejected') {
+    if (profile.approval_status === 'rejected') {
         return <Navigate to="/acesso-negado" replace />;
     }
 
