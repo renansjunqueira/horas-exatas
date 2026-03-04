@@ -18,19 +18,21 @@ const Login = () => {
         setError('');
         setIsLoading(true);
 
-        const { data, error } = await signIn(formData);
+        try {
+            const { data, error } = await signIn(formData);
 
-        if (error) {
-            setError('E-mail ou senha incorretos. Verifique seus dados e tente novamente.');
+            if (error) {
+                setError('E-mail ou senha incorretos. Verifique seus dados e tente novamente.');
+                return;
+            }
+
+            // O onAuthStateChange vai atualizar o AuthContext e o PublicOnlyRoute
+            // redireciona automaticamente com base no status do perfil.
+            if (data?.user) {
+                navigate('/projetos', { replace: true });
+            }
+        } finally {
             setIsLoading(false);
-            return;
-        }
-
-        // O ProtectedRoute cuida do redirect correto baseado no status do perfil.
-        // Mas se o login foi bem-sucedido, navegamos para o app —
-        // se o usuário estiver pending, o ProtectedRoute o redirecionará para /aguardando-aprovacao.
-        if (data?.user) {
-            navigate('/projetos', { replace: true });
         }
     };
 
