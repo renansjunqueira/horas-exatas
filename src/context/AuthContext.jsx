@@ -39,14 +39,18 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         // 1. Carrega a sessão atual imediatamente (não depende de evento)
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            if (!session?.user) {
+        supabase.auth.getSession()
+            .then(async ({ data: { session } }) => {
+                if (!session?.user) {
+                    setAuthState({ user: null, profile: null, isLoading: false });
+                    return;
+                }
+                const profile = await fetchProfile(session.user.id);
+                setAuthState({ user: session.user, profile, isLoading: false });
+            })
+            .catch(() => {
                 setAuthState({ user: null, profile: null, isLoading: false });
-                return;
-            }
-            const profile = await fetchProfile(session.user.id);
-            setAuthState({ user: session.user, profile, isLoading: false });
-        });
+            });
 
         // 2. Escuta mudanças posteriores (login, logout, token refresh)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
