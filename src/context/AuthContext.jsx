@@ -14,16 +14,27 @@ export const AuthProvider = ({ children }) => {
     });
 
     const fetchProfile = useCallback(async (userId) => {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-        if (error) {
-            console.error('Erro ao buscar perfil:', error);
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5000);
+
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single()
+                .abortSignal(controller.signal);
+
+            clearTimeout(timer);
+            if (error) {
+                console.error('Erro ao buscar perfil:', error);
+                return null;
+            }
+            return data;
+        } catch (err) {
+            console.error('fetchProfile timeout ou erro:', err);
             return null;
         }
-        return data;
     }, []);
 
     useEffect(() => {
