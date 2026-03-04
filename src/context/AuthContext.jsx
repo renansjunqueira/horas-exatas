@@ -38,9 +38,23 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
+        // Timeout de segurança: se getSession() travar (rede lenta / token refresh pendente),
+        // libera o spinner após 10s em vez de ficar bloqueado para sempre.
+        let resolved = false;
+        const safetyTimer = setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                setAuthState({ user: null, profile: null, isLoading: false });
+            }
+        }, 10000);
+
         // 1. Carrega a sessão atual imediatamente (não depende de evento)
         supabase.auth.getSession()
             .then(async ({ data: { session } }) => {
+                if (resolved) return; // timeout já disparou
+                resolved = true;
+                clearTimeout(safetyTimer);
+
                 if (!session?.user) {
                     setAuthState({ user: null, profile: null, isLoading: false });
                     return;
@@ -49,6 +63,9 @@ export const AuthProvider = ({ children }) => {
                 setAuthState({ user: session.user, profile, isLoading: false });
             })
             .catch(() => {
+                if (resolved) return;
+                resolved = true;
+                clearTimeout(safetyTimer);
                 setAuthState({ user: null, profile: null, isLoading: false });
             });
 
@@ -62,12 +79,24 @@ export const AuthProvider = ({ children }) => {
                     setAuthState({ user: null, profile: null, isLoading: false });
                     return;
                 }
+
                 const profile = await fetchProfile(session.user.id);
-                setAuthState({ user: session.user, profile, isLoading: false });
+
+                // Se fetchProfile falhou (null), mantém o profile anterior em vez de
+                // chutar o usuário para /aguardando-aprovacao (ex: falha temporária de rede
+                // durante TOKEN_REFRESHED a cada ~1h).
+                setAuthState(prev => ({
+                    user: session.user,
+                    profile: profile ?? prev.profile,
+                    isLoading: false,
+                }));
             }
         );
 
-        return () => subscription.unsubscribe();
+        return () => {
+            clearTimeout(safetyTimer);
+            subscription.unsubscribe();
+        };
     }, [fetchProfile]);
 
     const signUp = async ({ email, password, fullName }) => {
